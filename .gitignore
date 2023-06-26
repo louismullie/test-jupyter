@@ -1,2 +1,6 @@
-
 .DS_Store
+artifacts/**/*
+wandb/**/*
+*.pt
+*.nii
+*.nii.gz
