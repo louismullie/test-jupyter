@@ -4,3 +4,4 @@ wandb/**/*
 *.pt
 *.nii
 *.nii.gz
+*.pyc
