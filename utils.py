@@ -12,6 +12,7 @@ MINIO_USER = os.environ['MINIO_USER']
 MINIO_PASSWORD = os.environ['MINIO_PASSWORD']
 MINIO_PORT = os.environ['MINIO_PORT']
 MINIO_BUCKET = os.environ['MINIO_BUCKET']
+ORTHANC_PORT = os.environ['ORTHANC_PORT']
 
 def configure_notebook_session(NOTEBOOK_NAME):
 
@@ -24,6 +25,7 @@ def configure_notebook_session(NOTEBOOK_NAME):
     os.environ['AWS_S3_ENDPOINT_URL'] = f'http://minio:{MINIO_PORT}'
     os.environ['AWS_ACCESS_KEY_ID'] = MINIO_USER
     os.environ['AWS_SECRET_ACCESS_KEY'] = MINIO_PASSWORD
+    os.environ['ORTHANC_URL'] = f'http://orthanc:{ORTHANC_PORT}'
 
 # Instantiate SparkSession with necessary configurations
 def get_spark_session():
@@ -81,7 +83,7 @@ def extract_subject_id(obj):
 # Save a dataset to Minio and register as a W&B artifact
 def save_artifact(data_frame, project_name, artifact_name, run, type='dataset'):
 
-    file_uri = f'{MINIO_BUCKET}/datasets/%s/%s.parquet' % (project_name, artifact_name)
+    file_uri = f'{MINIO_BUCKET}/datasets/{project_name}/{artifact_name}.parquet'
     data_frame.write.parquet('s3a://' + file_uri, mode='overwrite')
 
     artifact = wandb.Artifact(artifact_name, type=type)
@@ -104,13 +106,13 @@ def save_artifact_from_file(file_path, project_name, artifact_name, run, type='O
     run.log_artifact(artifact)
 
 # Query the Orthanc API for studies
-def query_orthanc_api(server_url, query):
+def query_studies(query):
   
-    url = f"{server_url}/studies?{query}"
+    url = f"{os.environ['ORTHANC_URL']}/studies?{query}"
 
     try:
         response = requests.get(url, headers={
-          'Authorization': 'Basic b3J0aGFuYzpvcnRoYW5jMTIz'
+          'Authorization': f'Basic {os.environ['ORTHANC_AUTH_TOKEN']}'
         })
         if response.status_code == 200:
             studies = response.json()
@@ -122,13 +124,13 @@ def query_orthanc_api(server_url, query):
         print(f"Error: {e}")
 
 # Query the Orthanc API for series
-def query_series_by_name(server_url, study_instance_uid, series_name):
+def get_study_series_by_name(study_instance_uid, series_name):
 
-    url = f"{server_url}/studies/{study_instance_uid}/series"
+    url = f"{os.environ['ORTHANC_URL']}/studies/{study_instance_uid}/series"
 
     try:
         response = requests.get(url, headers={
-          'Authorization': 'Basic b3J0aGFuYzpvcnRoYW5jMTIz'
+          'Authorization': f'Basic {os.environ['ORTHANC_AUTH_TOKEN']}'
         })
         if response.status_code == 200:
             series = response.json()
@@ -142,13 +144,13 @@ def query_series_by_name(server_url, study_instance_uid, series_name):
         print(f"Error: {e}")
 
 # Retrieve a series as a NIfTI file
-def retrieve_series_nifti(server_url, series_instance_uid):
+def get_series_as_nifti(series_instance_uid):
 
-    url = f"{server_url}/series/{series_instance_uid}/nifti"
+    url = f"{os.environ['ORTHANC_URL']}/series/{series_instance_uid}/nifti"
 
     try:
         response = requests.get(url, headers={
-          'Authorization': 'Basic b3J0aGFuYzpvcnRoYW5jMTIz'
+          'Authorization': f'Basic {os.environ['ORTHANC_AUTH_TOKEN']}'
         })
         if response.status_code == 200:
             return response.content
@@ -157,7 +159,8 @@ def retrieve_series_nifti(server_url, series_instance_uid):
     except requests.exceptions.RequestException as e:
         print(f"Error: {e}")
 
-def display_nifti_images(nifti_file):
+# Display first, middle, last image in volume
+def display_and_log_sample_nifti_images(nifti_file, run):
     
     # Load the NIfTI file
     nifti = nib.load(nifti_file)
@@ -196,3 +199,10 @@ def display_nifti_images(nifti_file):
 
     # Show the plot
     plt.show()
+    
+    # Log some images to wandb
+    images = wandb.Image(
+        [first_slice, middle_slice, last_slice], 
+        caption="First, Middle, Last"
+    )
+    run.log({ "examples": images }
