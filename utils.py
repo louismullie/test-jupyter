@@ -12,7 +12,9 @@ MINIO_USER = os.environ['MINIO_USER']
 MINIO_PASSWORD = os.environ['MINIO_PASSWORD']
 MINIO_PORT = os.environ['MINIO_PORT']
 MINIO_BUCKET = os.environ['MINIO_BUCKET']
-ORTHANC_PORT = os.environ['ORTHANC_PORT']
+ORTHANC_WEB_PORT = os.environ['ORTHANC_WEB_PORT']
+ORTHANC_AUTH_TOKEN = os.environ['ORTHANC_AUTH_TOKEN']
+ORTHANC_URL = f'http://orthanc:{ORTHANC_WEB_PORT}'
 
 def configure_notebook_session(NOTEBOOK_NAME):
 
@@ -20,12 +22,13 @@ def configure_notebook_session(NOTEBOOK_NAME):
     assert(MINIO_PASSWORD is not None)
     assert(MINIO_PORT is not None)
     assert(MINIO_BUCKET is not None)
+    assert(ORTHANC_PORT is not None)
+    assert(ORTHANC_AUTH_TOKEN is not None)
 
     os.environ['WANDB_NOTEBOOK_NAME'] = NOTEBOOK_NAME
     os.environ['AWS_S3_ENDPOINT_URL'] = f'http://minio:{MINIO_PORT}'
     os.environ['AWS_ACCESS_KEY_ID'] = MINIO_USER
     os.environ['AWS_SECRET_ACCESS_KEY'] = MINIO_PASSWORD
-    os.environ['ORTHANC_URL'] = f'http://orthanc:{ORTHANC_PORT}'
 
 # Instantiate SparkSession with necessary configurations
 def get_spark_session():
@@ -108,11 +111,13 @@ def save_artifact_from_file(file_path, project_name, artifact_name, run, type='O
 # Query the Orthanc API for studies
 def query_studies(query):
   
-    url = f"{os.environ['ORTHANC_URL']}/studies?{query}"
-
+    url = f"{ORTHANC_URL}/studies?{query}"
+    
+    print(url, ORTHANC_AUTH_TOKEN)
+    
     try:
         response = requests.get(url, headers={
-          'Authorization': f'Basic {os.environ['ORTHANC_AUTH_TOKEN']}'
+          'Authorization': f"Basic {ORTHANC_AUTH_TOKEN}"
         })
         if response.status_code == 200:
             studies = response.json()
@@ -126,11 +131,11 @@ def query_studies(query):
 # Query the Orthanc API for series
 def get_study_series_by_name(study_instance_uid, series_name):
 
-    url = f"{os.environ['ORTHANC_URL']}/studies/{study_instance_uid}/series"
+    url = f"{ORTHANC_URL}/studies/{study_instance_uid}/series"
 
     try:
         response = requests.get(url, headers={
-          'Authorization': f'Basic {os.environ['ORTHANC_AUTH_TOKEN']}'
+          'Authorization': f"Basic {ORTHANC_AUTH_TOKEN}"
         })
         if response.status_code == 200:
             series = response.json()
@@ -146,11 +151,11 @@ def get_study_series_by_name(study_instance_uid, series_name):
 # Retrieve a series as a NIfTI file
 def get_series_as_nifti(series_instance_uid):
 
-    url = f"{os.environ['ORTHANC_URL']}/series/{series_instance_uid}/nifti"
+    url = f"{ORTHANC_URL}/series/{series_instance_uid}/nifti"
 
     try:
         response = requests.get(url, headers={
-          'Authorization': f'Basic {os.environ['ORTHANC_AUTH_TOKEN']}'
+          'Authorization': f"Basic {ORTHANC_AUTH_TOKEN}"
         })
         if response.status_code == 200:
             return response.content
@@ -205,4 +210,4 @@ def display_and_log_sample_nifti_images(nifti_file, run):
         [first_slice, middle_slice, last_slice], 
         caption="First, Middle, Last"
     )
-    run.log({ "examples": images }
+    run.log({ "examples": images })
