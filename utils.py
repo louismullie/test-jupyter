@@ -13,13 +13,14 @@ MINIO_PASSWORD = os.environ['MINIO_PASSWORD']
 MINIO_PORT = os.environ['MINIO_PORT']
 MINIO_BUCKET = os.environ['MINIO_BUCKET']
 
-def configure_session():
+def configure_notebook_session(NOTEBOOK_NAME):
 
     assert(MINIO_USER is not None)
     assert(MINIO_PASSWORD is not None)
     assert(MINIO_PORT is not None)
     assert(MINIO_BUCKET is not None)
 
+    os.environ['WANDB_NOTEBOOK_NAME'] = NOTEBOOK_NAME
     os.environ['AWS_S3_ENDPOINT_URL'] = f'http://minio:{MINIO_PORT}'
     os.environ['AWS_ACCESS_KEY_ID'] = MINIO_USER
     os.environ['AWS_SECRET_ACCESS_KEY'] = MINIO_PASSWORD
