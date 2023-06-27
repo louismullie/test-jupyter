@@ -17,7 +17,7 @@ ORTHANC_WEB_PORT = os.environ['ORTHANC_WEB_PORT']
 ORTHANC_AUTH_TOKEN = os.environ['ORTHANC_AUTH_TOKEN']
 ORTHANC_URL = f'http://orthanc:{ORTHANC_WEB_PORT}'
 
-def configure_notebook_session(NOTEBOOK_NAME):
+def configure_notebook_session(NOTEBOOK_NAME, PROJECT_NAME):
 
     assert(MINIO_USER is not None)
     assert(MINIO_PASSWORD is not None)
@@ -27,6 +27,7 @@ def configure_notebook_session(NOTEBOOK_NAME):
     assert(ORTHANC_AUTH_TOKEN is not None)
 
     os.environ['WANDB_NOTEBOOK_NAME'] = NOTEBOOK_NAME
+    os.environ['WANDB_PROJECT'] = PROJECT_NAME
     os.environ['AWS_S3_ENDPOINT_URL'] = f'http://minio:{MINIO_PORT}'
     os.environ['AWS_ACCESS_KEY_ID'] = MINIO_USER
     os.environ['AWS_SECRET_ACCESS_KEY'] = MINIO_PASSWORD
