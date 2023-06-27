@@ -59,27 +59,25 @@ def extract_subject_id(obj):
     2)
 
 # Save a dataset to Minio and register as a W&B artifact
-def save_artifact(data_frame, project_name, artifact_name, type='dataset'):
+def save_artifact(data_frame, project_name, artifact_name, run, type='dataset'):
 
     file_uri = 'coda/datasets/%s/%s.parquet' % (project_name, artifact_name)
     data_frame.write.parquet('s3a://' + file_uri, mode='overwrite')
 
-    # Add a reference to the artifact in W&B
-    run = wandb.init(project=project_name)
     artifact = wandb.Artifact(artifact_name, type=type)
     artifact.add_reference('s3://' + file_uri)
     run.log_artifact(artifact)
 
 # Save a dataset to Minio and register as a W&B artifact
-def save_artifact_from_file(file_path, project_name, artifact_name, type='Object3D'):
+def save_artifact_from_file(file_path, project_name, artifact_name, run, type='Object3D'):
 
     client = Minio("minio:9000", access_key="minio", secret_key="minio123", secure=False)
     bucket_name = 'coda'
     path_in_bucket = 'datasets/%s/nii/%s' % (project_name, artifact_name)
     client.fput_object('coda', path_in_bucket, file_path)
     print(f's3://{bucket_name}/{path_in_bucket}', file_path)
+    
     # Add a reference to the artifact in W&B
-    run = wandb.init(project=project_name)
     artifact = wandb.Artifact(artifact_name, type=type)
     artifact.add_reference(f's3://{bucket_name}/{path_in_bucket}')
     run.log_artifact(artifact)
