@@ -6,6 +6,7 @@ import wandb
 import nibabel as nib
 import matplotlib.pyplot as plt
 from minio import Minio
+import numpy as np
 import os
 
 MINIO_USER = os.environ['MINIO_USER']
@@ -22,7 +23,7 @@ def configure_notebook_session(NOTEBOOK_NAME):
     assert(MINIO_PASSWORD is not None)
     assert(MINIO_PORT is not None)
     assert(MINIO_BUCKET is not None)
-    assert(ORTHANC_PORT is not None)
+    assert(ORTHANC_WEB_PORT is not None)
     assert(ORTHANC_AUTH_TOKEN is not None)
 
     os.environ['WANDB_NOTEBOOK_NAME'] = NOTEBOOK_NAME
@@ -86,7 +87,7 @@ def extract_subject_id(obj):
 # Save a dataset to Minio and register as a W&B artifact
 def save_artifact(data_frame, project_name, artifact_name, run, type='dataset'):
 
-    file_uri = f'{MINIO_BUCKET}/datasets/{project_name}/{artifact_name}.parquet'
+    file_uri = f'{MINIO_BUCKET}/datasets/{project_name}/parquet/{artifact_name}'
     data_frame.write.parquet('s3a://' + file_uri, mode='overwrite')
 
     artifact = wandb.Artifact(artifact_name, type=type)
@@ -98,14 +99,12 @@ def save_artifact_from_file(file_path, project_name, artifact_name, run, type='O
 
     client = Minio(f'minio:{MINIO_PORT}', access_key=MINIO_USER, 
                    secret_key=MINIO_PASSWORD, secure=False)
-    path_in_bucket = 'datasets/%s/nii/%s' % (project_name, artifact_name)
+    path_in_bucket = f'datasets/{project_name}/nii/{artifact_name}'
     client.fput_object(MINIO_BUCKET, path_in_bucket, file_path)
-    
-    print(f's3://{MINIO_BUCKET}/{path_in_bucket}', file_path)
     
     # Add a reference to the artifact in W&B
     artifact = wandb.Artifact(artifact_name, type=type)
-    artifact.add_reference(f's3://{bucket_name}/{path_in_bucket}')
+    artifact.add_reference(f's3://{MINIO_BUCKET}/{path_in_bucket}')
     run.log_artifact(artifact)
 
 # Query the Orthanc API for studies
@@ -206,8 +205,5 @@ def display_and_log_sample_nifti_images(nifti_file, run):
     plt.show()
     
     # Log some images to wandb
-    images = wandb.Image(
-        [first_slice, middle_slice, last_slice], 
-        caption="First, Middle, Last"
-    )
-    run.log({ "examples": images })
+    images = [first_slice, middle_slice, last_slice]
+    run.log({ "examples": [wandb.Image(image) for image in images] })
