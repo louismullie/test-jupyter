@@ -6,6 +6,23 @@ import wandb
 import nibabel as nib
 import matplotlib.pyplot as plt
 from minio import Minio
+import os
+
+MINIO_USER = os.environ['MINIO_USER']
+MINIO_PASSWORD = os.environ['MINIO_PASSWORD']
+MINIO_PORT = os.environ['MINIO_PORT']
+MINIO_BUCKET = os.environ['MINIO_BUCKET']
+
+def configure_session():
+
+    assert(MINIO_USER is not None)
+    assert(MINIO_PASSWORD is not None)
+    assert(MINIO_PORT is not None)
+    assert(MINIO_BUCKET is not None)
+
+    os.environ['AWS_S3_ENDPOINT_URL'] = f'http://minio:{MINIO_PORT}'
+    os.environ['AWS_ACCESS_KEY_ID'] = MINIO_USER
+    os.environ['AWS_SECRET_ACCESS_KEY'] = MINIO_PASSWORD
 
 # Instantiate SparkSession with necessary configurations
 def get_spark_session():
@@ -13,11 +30,11 @@ def get_spark_session():
     spark = SparkSession.builder.config('spark.jars', find_jar()) \
         .config('spark.jars.packages', 'org.apache.hadoop:hadoop-aws:3.3.4') \
         .config('spark.hadoop.fs.s3a.impl', 'org.apache.hadoop.fs.s3a.S3AFileSystem') \
-        .config('spark.hadoop.fs.s3a.endpoint', 'http://minio:9000') \
+        .config('spark.hadoop.fs.s3a.endpoint', f'http://minio:{MINIO_PORT}') \
         .config('spark.hadoop.fs.s3a.aws.credentials.provider', 
                 'org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider') \
-        .config('spark.hadoop.fs.s3a.access.key', 'minio') \
-        .config('spark.hadoop.fs.s3a.secret.key', 'minio123') \
+        .config('spark.hadoop.fs.s3a.access.key', MINIO_USER) \
+        .config('spark.hadoop.fs.s3a.secret.key', MINIO_PASSWORD) \
         .config('spark.hadoop.fs.s3a.path.style.access', 'true') \
         .config('spark.executor.memory', '8g') \
         .getOrCreate()
@@ -39,9 +56,11 @@ def load_resource(pc, path, resource_type):
 
 # Loading the resource data
 def load_resources(pc, resources):
+    
     resource_data = {
-        resource_type: load_resource(pc, f's3a://coda/fhir/{resource_type}.ndjson', 
-                                    resource_type)
+        resource_type: load_resource(
+            pc, f's3a://{MINIO_BUCKET}/fhir/{resource_type}.ndjson', 
+            resource_type)
         for resource_type in resources
     }
     return resource_data
@@ -61,7 +80,7 @@ def extract_subject_id(obj):
 # Save a dataset to Minio and register as a W&B artifact
 def save_artifact(data_frame, project_name, artifact_name, run, type='dataset'):
 
-    file_uri = 'coda/datasets/%s/%s.parquet' % (project_name, artifact_name)
+    file_uri = f'{MINIO_BUCKET}/datasets/%s/%s.parquet' % (project_name, artifact_name)
     data_frame.write.parquet('s3a://' + file_uri, mode='overwrite')
 
     artifact = wandb.Artifact(artifact_name, type=type)
@@ -71,11 +90,12 @@ def save_artifact(data_frame, project_name, artifact_name, run, type='dataset'):
 # Save a dataset to Minio and register as a W&B artifact
 def save_artifact_from_file(file_path, project_name, artifact_name, run, type='Object3D'):
 
-    client = Minio("minio:9000", access_key="minio", secret_key="minio123", secure=False)
-    bucket_name = 'coda'
+    client = Minio(f'minio:{MINIO_PORT}', access_key=MINIO_USER, 
+                   secret_key=MINIO_PASSWORD, secure=False)
     path_in_bucket = 'datasets/%s/nii/%s' % (project_name, artifact_name)
-    client.fput_object('coda', path_in_bucket, file_path)
-    print(f's3://{bucket_name}/{path_in_bucket}', file_path)
+    client.fput_object(MINIO_BUCKET, path_in_bucket, file_path)
+    
+    print(f's3://{MINIO_BUCKET}/{path_in_bucket}', file_path)
     
     # Add a reference to the artifact in W&B
     artifact = wandb.Artifact(artifact_name, type=type)
@@ -137,6 +157,7 @@ def retrieve_series_nifti(server_url, series_instance_uid):
         print(f"Error: {e}")
 
 def display_nifti_images(nifti_file):
+    
     # Load the NIfTI file
     nifti = nib.load(nifti_file)
 
