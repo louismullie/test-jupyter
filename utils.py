@@ -88,7 +88,7 @@ def extract_subject_id(obj):
 # Save a dataset to Minio and register as a W&B artifact
 def save_artifact(data_frame, project_name, artifact_name, run, type='dataset'):
 
-    file_uri = f'{MINIO_BUCKET}/datasets/{project_name}/parquet/{artifact_name}'
+    file_uri = f'{MINIO_BUCKET}/datasets/{project_name}/parquet/{artifact_name}.parquet'
     data_frame.write.parquet('s3a://' + file_uri, mode='overwrite')
 
     artifact = wandb.Artifact(artifact_name, type=type)
