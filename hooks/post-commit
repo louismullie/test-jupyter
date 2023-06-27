@@ -1,2 +1,6 @@
 #!/bin/bash
+
+# make sure it's executable:
+# chmod +x post-commit
+
 ../../docker-build-push.sh
